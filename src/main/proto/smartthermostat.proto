@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package smartthermostat;
+
+option java_multiple_files = true;
+option java_package = "thermostat.protos";
+option java_outer_classname = "EnergyServicesProtos";
+
+service SmartThermostat {
+
+	rpc SetTargetTemperature(SetTargetTemperatureRequest) returns (SetTargetTemperatureResponse);
+	rpc StreamTemperatureHistory(GetTemperatureHistoryRequest) returns (stream TemperatureReading);
+	rpc GetAverageTemperature(stream TemperatureReading) returns (GetAverageTemperatureResponse);
+	
+}
+
+message SetTargetTemperatureRequest {
+
+	double target_temp = 1; //The target temperature to be set in degrees celsius
+	
+}
+
+message SetTargetTemperatureResponse {
+
+	bool success = 1; //Boolean to store if temp set correctly
+	
+}
+
+message TemperatureReading {
+
+	double temperature = 1; //Stores the temp reading
+	int64 timestamp = 2; //Stores the time when the temp was measured
+
+}
+
+message GetTemperatureHistoryRequest {
+	
+	int64 start_timestamp = 1; //Stores the start time
+	int64 end_timestamp = 2; //Stores the end time
+	
+}
+
+message GetAverageTemperatureResponse {
+
+	double average_temp = 1; //Stores the average temperature
+	int32 reading_count = 2; //Stores how many temperatures were used to calc the average
+
+}
