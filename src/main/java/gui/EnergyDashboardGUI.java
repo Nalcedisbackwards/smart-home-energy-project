@@ -3,6 +3,8 @@ package gui;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -23,6 +25,16 @@ public class EnergyDashboardGUI {
 	
 	//Launch GUI on run
 	public static void main(String[] args) {
+		//Start the thermostat server
+		new Thread(() -> {
+			try {
+				server.ThermostatServer.main(new String[]{});
+			}catch(Exception e) {
+				e.printStackTrace();
+			}
+		}, "grpc-server").start();
+		
+		//Launch GUI
 		SwingUtilities.invokeLater(EnergyDashboardGUI::new);
 	}
 	
@@ -56,11 +68,11 @@ public class EnergyDashboardGUI {
 		
 		//Stream Temperature History
 		JPanel histPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		histPanel.add(new JLabel("History Start (ms):"));
-		JTextField txtHistStart = new JTextField(10);
+		histPanel.add(new JLabel("History Start (yyyy-mm-ddThh:mm:ss):"));
+		JTextField txtHistStart = new JTextField(16);
 		histPanel.add(txtHistStart);
-		histPanel.add(new JLabel("End (ms)"));
-		JTextField txtHistEnd = new JTextField(10);
+		histPanel.add(new JLabel("History End (yyyy-mm-ddThh:mm:ss)"));
+		JTextField txtHistEnd = new JTextField(16);
 		histPanel.add(txtHistEnd);
 		JButton btnGetHistory = new JButton("Get History");
 		histPanel.add(btnGetHistory);
@@ -68,11 +80,11 @@ public class EnergyDashboardGUI {
 		
 		//Compute Average Temperature
 		JPanel avgPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		avgPanel.add(new JLabel("Avg Start (ms):"));
-		JTextField txtAvgStart = new JTextField(10);
+		avgPanel.add(new JLabel("Avg Start (yyyy-mm-ddThh:mm:ss):"));
+		JTextField txtAvgStart = new JTextField(16);
         avgPanel.add(txtAvgStart);
-        avgPanel.add(new JLabel("End (ms):"));
-        JTextField txtAvgEnd = new JTextField(10);
+        avgPanel.add(new JLabel("Avg End (yyyy-mm-ddThh:mm:ss):"));
+        JTextField txtAvgEnd = new JTextField(16);
         avgPanel.add(txtAvgEnd);
         JButton btnGetAverage = new JButton("Get Average");
         avgPanel.add(btnGetAverage);
@@ -106,7 +118,6 @@ public class EnergyDashboardGUI {
         
         //Action listeners
         btnSetTarget.addActionListener(evt -> {
-        	txtAreaThermo.append("[DEBUG] Set Target clicked\n");
         	new Thread(() -> {
         		try {
         			double t = Double.parseDouble(txtTarget.getText());
@@ -119,11 +130,13 @@ public class EnergyDashboardGUI {
         });
         
         btnGetHistory.addActionListener(e -> {
-        	txtAreaThermo.append("[DEBUG] Get History clicked\n");
         	new Thread(() -> {
         		try {
-        			long s1 = Long.parseLong(txtHistStart.getText());
-        			long e1 = Long.parseLong(txtHistEnd.getText());
+        			LocalDateTime ldtStart = LocalDateTime.parse(txtHistStart.getText());
+        			LocalDateTime ldtEnd = LocalDateTime.parse(txtHistEnd.getText());
+        			
+        			long s1 = ldtStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        			long e1 = ldtEnd.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         			List<TemperatureReading> hist = ThermostatClient.getHistory(s1, e1);
         			SwingUtilities.invokeLater(() -> {
         				txtAreaThermo.append("--- History ---\n");
@@ -138,11 +151,13 @@ public class EnergyDashboardGUI {
         });
         
         btnGetAverage.addActionListener(e -> {
-        	txtAreaThermo.append("[DEBUG] Get Average clicked\n");
         	new Thread(() -> {
         		try {
-        			long s1 = Long.parseLong(txtAvgStart.getText());
-        			long e1 = Long.parseLong(txtAvgEnd.getText());
+        			LocalDateTime ldtStart = LocalDateTime.parse(txtHistStart.getText());
+        			LocalDateTime ldtEnd = LocalDateTime.parse(txtHistEnd.getText());
+        			
+        			long s1 = ldtStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        			long e1 = ldtEnd.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         			double avg = ThermostatClient.getAverage(s1, e1);
         			SwingUtilities.invokeLater(() -> txtAreaThermo.append(String.format("Average=%.2f°C\n", avg)));
         		}catch(Exception ex) {
