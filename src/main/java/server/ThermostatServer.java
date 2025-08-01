@@ -97,21 +97,35 @@ public class ThermostatServer extends SmartThermostatImplBase {
 		responseObserver.onCompleted();
 	}
 	
+	//Client streaming RPC: recives multiple TemperatureReading messages and computes the average
 	@Override
 	 public StreamObserver<TemperatureReading> getAverageTemperature(StreamObserver<GetAverageTemperatureResponse> responseObserver) {
 		return new StreamObserver<TemperatureReading>() {
+			private double sum = 0; //sum of the recived temps
+			private int count = 0; //number of readings recived
 			 @Override
 		     public void onNext(TemperatureReading reading) {
-		            
+				 //sums the readings and increments count
+				 sum += reading.getTemperature();
+				 count++;
 		     }
 			 
 			 @Override
 			 public void onError(Throwable t) {
-		      
+				 logger.warning("Stream error: " + t);
 			 }
 			 
 			 @Override
 		     public void onCompleted() {
+				 //calc average
+				 double average = sum/count;
+				 
+				 //build response
+				 GetAverageTemperatureResponse resp = GetAverageTemperatureResponse.newBuilder()
+						 .setAverageTemp(average)
+						 .build();
+				 
+				 responseObserver.onNext(resp);
 				 responseObserver.onCompleted();
 			 }
 		};
