@@ -35,13 +35,13 @@ public class ThermostatServer extends SmartThermostatImplBase {
 	
 	//Main method to start the gRPC server and register service via jmDNS discovery
 	public static void main(String[] args) throws IOException, InterruptedException {
-		ThermostatServer thermostatserver = new ThermostatServer();
+		ThermostatServer thermostatservice = new ThermostatServer();
 		int port = 50051;//Network port for gRPC service
 		
 		//Build and start the gRPC server
 		Server server = ServerBuilder
 				.forPort(port)
-				.addService(thermostatserver)
+				.addService(thermostatservice)
 				.build()
 				.start();
 		
@@ -62,8 +62,9 @@ public class ThermostatServer extends SmartThermostatImplBase {
 	
 	//Unary RPC: Sets new target temp
 	@Override
-	 public void setTargetTemperature(SetTargetTemperatureRequest req, StreamObserver<SetTargetTemperatureResponse> responseObserver) {
-		double newTemp = req.getTargetTemp(); // Read the requested temperature
+	public void setTargetTemperature(SetTargetTemperatureRequest req, StreamObserver<SetTargetTemperatureResponse> responseObserver) {
+
+	double newTemp = req.getTargetTemp(); // Read the requested temperature
 		currentTargetTemp = newTemp;
 		
 		//build and send a success response

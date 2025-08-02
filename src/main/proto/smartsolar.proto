@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package smartsolar;
+
+option java_multiple_files = true;
+option java_package = "solar.protos";
+option java_outer_classname = "SolarPanelProtos";
+
+import "google/protobuf/empty.proto";
+
+service SmartSolarService{
+
+	rpc GetDailyYield (GetDailyYieldRequest) returns (GetDailyYieldResponse);
+	rpc StreamRealTimeOutput (google.protobuf.Empty) returns (stream RealTimeOutput);
+	rpc EnergyTradeNegotiation (stream TradeRequest) returns (stream TradeResponse);
+	
+}
+
+message GetDailyYieldRequest {
+	string date = 1;
+}
+
+message GetDailyYieldResponse {
+	double yieldKw = 1;
+	double peak = 2;
+}
+
+message RealTimeOutput {
+	double currentKw = 1;
+	string timestamp = 2;
+}
+
+message TradeRequest {
+	double price = 1;
+	double quantity = 2;
+}
+
+message TradeResponse {
+	bool accepted = 1;
+	double counterOffer = 2;
+	double agreedPrice = 3;
+}
