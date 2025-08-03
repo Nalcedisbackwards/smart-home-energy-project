@@ -1,3 +1,12 @@
+/*
+ * ThermostatClient.java
+ *
+ * Client implementation for the SmartThermostat gRPC service. 
+ * Establishes a channel to the ThermostatServer. 
+ * Offers methods for each RPC.
+ * Includes proper shutdown and error handling.
+ */
+
 package client;
 
 import java.util.ArrayList;
@@ -23,10 +32,11 @@ public class ThermostatClient {
 	
 	private static Logger logger = Logger.getLogger(ThermostatClient.class.getName());
 	
-	//gRPC channel and stubs
+	//Host and port for connecting to the gRPC server
     static String host = "localhost";
     static int port = 50051;
-        
+    
+    //Channel and stub declarations
     private static final ManagedChannel channel;
     private static final SmartThermostatGrpc.SmartThermostatBlockingStub blockingStub;
     private static final SmartThermostatGrpc.SmartThermostatStub asyncStub;
@@ -40,7 +50,7 @@ public class ThermostatClient {
         asyncStub    = SmartThermostatGrpc.newStub(channel);
     }
     
-    //shutdown method
+    //Shutdown method
     public static void shutdown() {
     	channel.shutdown();
     	try {
@@ -53,47 +63,56 @@ public class ThermostatClient {
     }   
     
         
-    //Unary RPC: Set TargetTemperature
+    //Unary RPC: Set target temperature
     public static boolean setTarget(double temp) {
+    	//Build request with new target temperature
     	SetTargetTemperatureRequest request = SetTargetTemperatureRequest.newBuilder().setTargetTemp(temp).build();
     	try {
+    		//Blocking call
     		SetTargetTemperatureResponse response = blockingStub.setTargetTemperature(request);
     		return response.getSuccess();
     	}catch(StatusRuntimeException e) {
-    		logger.warning("setTarget RPC failed: " + e.getStatus());
+    		logger.warning("setTarget RPC failed: " + e.getStatus()); //Error handling
     		return false;
     	}
     }
     		
-    //Server streaming RPC: StreamTemperatureHistory	
+    //Server streaming RPC: Stream temperature history	
     public static List<TemperatureReading> getHistory(long start, long end) {
+    	//Build request with start and end timestamps
     	GetTemperatureHistoryRequest request = GetTemperatureHistoryRequest.newBuilder()
     			.setStartTimestamp(start) 
     			.setEndTimestamp(end)
     			.build();
     	List<TemperatureReading> readings = new ArrayList<>();
     	try {
+    		//Iterate through all readings
     		Iterator<TemperatureReading> iter = blockingStub.streamTemperatureHistory(request);
-    		iter.forEachRemaining(readings::add);
+    		iter.forEachRemaining(readings::add); //Add each reading to the list
     	}catch(StatusRuntimeException e) {
-    		logger.warning("getHistory RPC failed: " + e.getStatus());
+    		logger.warning("getHistory RPC failed: " + e.getStatus()); //Error handling
     	}
     	return readings;
     }
     		
-    //Client streaming RPC: GetAverageTemperature
+    //Client streaming RPC: Get average temperature
     public static double getAverage(long start, long end) {
+    	
+    	//Latch to wait for the server's single response
     	CountDownLatch latch = new CountDownLatch(1);
+    	
+    	//Atomic reference to capture the average from asynchronous callback
     	AtomicReference<Double> avgRef = new AtomicReference<>(Double.NaN);
     	
+    	//Response observer to handle server's reply
     	StreamObserver<GetAverageTemperatureResponse> respObserver = new StreamObserver<GetAverageTemperatureResponse>() {
     		@Override
     		public void onNext(GetAverageTemperatureResponse response) {
-    			avgRef.set(response.getAverageTemp());
+    			avgRef.set(response.getAverageTemp()); //Capture the average temperature
     		}
     		@Override
     		public void onError(Throwable t) {
-    			logger.warning("getAverage RPC failed: " + t);
+    			logger.warning("getAverage RPC failed: " + t); //Error handling
     			latch.countDown();
     		}
     		@Override
@@ -103,20 +122,20 @@ public class ThermostatClient {
     	};
     	
     	try {
-    		//request observer for sending temperature readings
+    		//Request observer for sending temperature readings
     		StreamObserver<TemperatureReading> reqObserver = asyncStub.getAverageTemperature(respObserver);
     		
-    		//generate one reading per second between start and end
+    		//Generate one reading per second between start and end
     		for(long ts = start; ts <= end; ts +=1000) {
     			TemperatureReading reading = TemperatureReading.newBuilder()
     					.setTimestamp(ts)
-    					.setTemperature(20.0 + Math.random()*0.5)
+    					.setTemperature(20.0 + Math.random()*0.5) //Simulated noise around 20°C
     					.build();
-    			reqObserver.onNext(reading);
+    			reqObserver.onNext(reading); //Send each reading
     		}
-    		reqObserver.onCompleted();
+    		reqObserver.onCompleted(); //End stream
     		
-    		//wait for server response or timeout
+    		//Wait for server response or timeout
     		if(!latch.await(5,  TimeUnit.SECONDS)) {
     			logger.warning("getAverage RPC timeout");
     		}
@@ -125,6 +144,6 @@ public class ThermostatClient {
     	}catch(StatusRuntimeException e) {
     		logger.warning("getAverage RPC failed: " + e.getStatus());
     	}
-    	return avgRef.get();
+    	return avgRef.get(); //Return average or NaN
     }
 }

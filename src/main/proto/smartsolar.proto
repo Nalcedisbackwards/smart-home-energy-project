@@ -1,42 +1,60 @@
+/*
+ * SmartSolarService.proto
+ *
+ * Defines the Smart Solar Panel gRPC service for a smart home energy system.
+ */
+
 syntax = "proto3";
 
 package smartsolar;
 
-option java_multiple_files = true;
-option java_package = "solar.protos";
-option java_outer_classname = "SolarPanelProtos";
+//Java code generation options
+option java_multiple_files = true; //Each service in a separate Java file
+option java_package = "solar.protos"; //Java package for generated classes
+option java_outer_classname = "SolarPanelProtos"; //Wrapper class name for all types
 
-import "google/protobuf/empty.proto";
+import "google/protobuf/empty.proto"; //Import Empty message for RPCs with no request parameters
 
+//Service definition for Smart Solar Panel operations
 service SmartSolarService{
-
+	
+	//Unary RPC to get energy yield for a date
 	rpc GetDailyYield (GetDailyYieldRequest) returns (GetDailyYieldResponse);
+	
+	//Server streaming RPC to emit power output readings
 	rpc StreamRealTimeOutput (google.protobuf.Empty) returns (stream RealTimeOutput);
+	
+	//Bidirectional streaming RPC to sell energy to the grid
 	rpc EnergyTradeNegotiation (stream TradeRequest) returns (stream TradeResponse);
 	
 }
 
+//Request message for obtaining daily solar yield
 message GetDailyYieldRequest {
-	string date = 1;
+	string date = 1; //Date YYYY-MM-DD
 }
 
+//Response message with daily yield and peak output
 message GetDailyYieldResponse {
-	double yieldKw = 1;
-	double peak = 2;
+	double yieldKw = 1; //Daily yield
+	double peak = 2; //Peak output
 }
 
+//Message representing a single power output reading
 message RealTimeOutput {
-	double currentKw = 1;
-	string timestamp = 2;
+	double currentKw = 1; //Power output in kW
+	string timestamp = 2; //Timestamp
 }
 
+//Request message for energy trade
 message TradeRequest {
-	double price = 1;
-	double quantity = 2;
+	double price = 1; //Offered price
+	double quantity = 2; //Quantity of energy in kWh
 }
 
+//Response message for trade negotiation
 message TradeResponse {
-	bool accepted = 1;
-	double counterOffer = 2;
-	double agreedPrice = 3;
+	bool accepted = 1; //True if trade accepted, false if not
+	double counterOffer = 2; //Counter-offered price
+	double agreedPrice = 3; //Final agreed price
 }

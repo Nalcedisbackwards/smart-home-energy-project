@@ -1,3 +1,10 @@
+/*
+ * SolarServer.java
+ *
+ * Implements the SmartSolar gRPC service for a smart home energy system.
+ * Registers the service with jmDNS for discovery on the local network.
+ */
+
 package server;
 
 import java.io.IOException;
@@ -16,27 +23,14 @@ import io.grpc.stub.StreamObserver;
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
 
-/*
- * ThermostatServer implements the SmartThermostat gRPC services defined in the proto file. 
- */
-
 public class ThermostatServer extends SmartThermostatImplBase {
-	
-	//Initial target temp to be set upon starting
-	private volatile double currentTargetTemp = 20.0;
-	
-	
-	//
+
 	private static final Logger logger = Logger.getLogger(ThermostatServer.class.getName());
+	private final Random random = new Random(); //Random generator for simulating data
 	
-	//Random genrator to simulate noise in temperature readings
-	private final Random random = new Random();
-	
-	
-	//Main method to start the gRPC server and register service via jmDNS discovery
 	public static void main(String[] args) throws IOException, InterruptedException {
 		ThermostatServer thermostatservice = new ThermostatServer();
-		int port = 50051;//Network port for gRPC service
+		int port = 50051; //Port where the gRPC server will listen
 		
 		//Build and start the gRPC server
 		Server server = ServerBuilder
@@ -47,87 +41,86 @@ public class ThermostatServer extends SmartThermostatImplBase {
 		
 		logger.info("Thermostat server started, listening on " + port);
 		
-		
-		//jmDNS registration on advertise the service on the local network
+		//Register service via jmDNS for discovery on local network
 		JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
-		
+		//(Service type, Service name, Service port, Service description)
 		ServiceInfo serviceInfo = ServiceInfo.create("_thermostat._grpc._tcp.local.", "ThermostatService", port, "Thermostat Server will give you the current temperature");
 		jmdns.registerService(serviceInfo);
 		System.out.println("Starting the Thermostat Server loop");
 		
-		server.awaitTermination();//keep server running
+		//Wait until server is terminated
+		server.awaitTermination();
 		
 	}
 	
+	private volatile double currentTargetTemp = 20.0; //Init target temp
 	
-	//Unary RPC: Sets new target temp
 	@Override
 	public void setTargetTemperature(SetTargetTemperatureRequest req, StreamObserver<SetTargetTemperatureResponse> responseObserver) {
 
-	double newTemp = req.getTargetTemp(); // Read the requested temperature
-		currentTargetTemp = newTemp;
+		currentTargetTemp = req.getTargetTemp(); //Read the target temperature
 		
-		//build and send a success response
+		//Build and send the response
 		SetTargetTemperatureResponse reply = SetTargetTemperatureResponse.newBuilder()
 				.setSuccess(true)
 				.build();
-		responseObserver.onNext(reply);
-		responseObserver.onCompleted();
+		
+		responseObserver.onNext(reply); //Send response
+		responseObserver.onCompleted(); //Complete the stream
 	}
 	
-	//Server streaming RPC: Streams simulated temperature readings between two timestamps
 	@Override
     public void streamTemperatureHistory(GetTemperatureHistoryRequest req, StreamObserver<TemperatureReading> responseObserver) {
-		long startTH = req.getStartTimestamp(); //start time in ms
-		long endTH = req.getEndTimestamp(); //end time in ms
-		long stepTH = 1_000; //interval between samples = 1 sec
+		long startTH = req.getStartTimestamp(); //Start time in ms
+		long endTH = req.getEndTimestamp(); //End time in ms
+		long stepTH = 1_000; //Interval between samples = 1 sec
 		
-		//loop from start to end timestamp sending 1 reading per sec
+		//Loop through timestamps and send readings
 		for (long i = startTH; i <= endTH; i += stepTH) {
-			//simulate temp with noise around current target
-			double noisyTemp = currentTargetTemp + random.nextGaussian()*0.5;
+			double noisyTemp = currentTargetTemp + random.nextGaussian()*0.5; //Add Gaussian noise
 			
-			//build TemperatureReading message
+			//Build and send response
 			TemperatureReading reading = TemperatureReading.newBuilder()
 					.setTemperature(noisyTemp)
 					.setTimestamp(i)
 					.build();
-			//send each reading to the client
 			responseObserver.onNext(reading);
 		}
-		responseObserver.onCompleted();
+		responseObserver.onCompleted(); //Complete the stream
 	}
 	
-	//Client streaming RPC: recives multiple TemperatureReading messages and computes the average
 	@Override
 	 public StreamObserver<TemperatureReading> getAverageTemperature(StreamObserver<GetAverageTemperatureResponse> responseObserver) {
+		
+		//Receive multiple readings and compute their average
 		return new StreamObserver<TemperatureReading>() {
-			private double sum = 0; //sum of the recived temps
-			private int count = 0; //number of readings recived
+			private double sum = 0; //sum of the received temps
+			private int count = 0; //number of readings received
+			
 			 @Override
 		     public void onNext(TemperatureReading reading) {
-				 //sums the readings and increments count
+				 
+				 //Sums the readings and increments count
 				 sum += reading.getTemperature();
 				 count++;
 		     }
 			 
 			 @Override
 			 public void onError(Throwable t) {
-				 logger.warning("Stream error: " + t);
+				 logger.warning("Stream error: " + t); //Error handling
 			 }
 			 
 			 @Override
 		     public void onCompleted() {
-				 //calc average
-				 double average = sum/count;
+				 double average = sum/count; //Calc average
 				 
-				 //build response
+				 //Build response
 				 GetAverageTemperatureResponse resp = GetAverageTemperatureResponse.newBuilder()
 						 .setAverageTemp(average)
 						 .build();
 				 
-				 responseObserver.onNext(resp);
-				 responseObserver.onCompleted();
+				 responseObserver.onNext(resp); //Send response
+				 responseObserver.onCompleted(); //Complete the stream
 			 }
 		};
 	}

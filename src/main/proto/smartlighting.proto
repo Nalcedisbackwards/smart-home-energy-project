@@ -1,0 +1,77 @@
+/*
+*smartlighting.proto
+*
+*Defines the Smart Lighting gRPC service for a smart home system.
+*/
+
+syntax = "proto3";
+
+package smartlighting;
+
+//Java code generation options
+option java_multiple_files = true; //Each service in a separate Java file
+option java_package = "lighting.protos"; //Java package for generated classes
+option java_outer_classname = "SmartLightingProtos"; //Wrapper class name for all types
+
+//Service for controlling and monitoring smart lighting zones
+service SmartLightingService {
+
+	//Unary RPC to get the current brightness level
+	rpc GetCurrentBrightness(GetCurrentBrightnessRequest) returns (GetCurrentBrightnessResponse);
+	
+	//Server streaming RPC to deliver ambient light readings
+	rpc StreamAmbientLightData(StreamAmbientLightDataRequest) returns (stream AmbientLightReading);
+	
+	//Client streaming RPC to upload usage statistics
+	rpc UploadLightUsageStats(stream LightUsageStat) returns (UploadLightUsageResponse);
+	
+	//Bidirectional streaming RPC to dynamically adjust brightness levels
+	rpc AdjustBrightness(stream AdjustBrightnessRequest) returns (stream AdjustBrightnessResponse);
+}
+
+//Request for querying current brightness of a zone
+message GetCurrentBrightnessRequest {
+  string zoneId = 1; //Identifier for the lighting zone  
+}
+
+//Response with the brightness level and timestamp
+message GetCurrentBrightnessResponse {
+  int32  level     = 1; //Brightness level
+  string timestamp = 2; //Timestamp 
+}
+
+//Request to start streaming ambient light data for a zone
+message StreamAmbientLightDataRequest {
+  string zoneId = 1; //Identifier for the zone
+}
+
+//Ambient light sensor reading
+message AmbientLightReading {
+  double lux      = 1; //Illuminance measurement in lux
+  bool   occupied = 2; //Occupancy status 
+  string timestamp= 3; //Timestamp
+}
+
+//Usage statistics for a period of time
+message LightUsageStat {
+  int32 durationMin  = 1; //Duration of the period
+  int32 averageLevel = 2; //Average brightness level
+}
+
+//Response after uploading usage statistics
+message UploadLightUsageResponse {
+  double totalEnergyKw = 1; //Total energy consumed in kilowatt-hours
+}
+
+//Request to adjust brightness
+message AdjustBrightnessRequest {
+  int32  desiredLevel = 1; //Target brightness level
+  bool   occupied     = 2; //Current occupancy status
+  string timestamp    = 3; //Timestamp 
+}
+
+//Server response after adjustment
+message AdjustBrightnessResponse {
+  double lux       = 1; //Measured lux after adjustment
+  string timestamp= 2; //Timestamp
+}

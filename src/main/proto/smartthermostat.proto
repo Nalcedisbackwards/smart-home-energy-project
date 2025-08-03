@@ -1,48 +1,56 @@
+/*
+*smartthermostat.proto
+*
+*Defines the Smart Thermostat gRPC service for a smart home system.
+*/
+
 syntax = "proto3";
 
 package smartthermostat;
 
-option java_multiple_files = true;
-option java_package = "thermostat.protos";
-option java_outer_classname = "EnergyServicesProtos";
+//Java code generation options
+option java_multiple_files = true; //Each service in a separate Java file
+option java_package = "thermostat.protos"; //Java package for generated classes
+option java_outer_classname = "EnergyServicesProtos"; //Wrapper class name for all types
 
+//Service definition for Smart Thermostat operations
 service SmartThermostat {
-
+	
+	//Unary RPC to set a target temp
 	rpc SetTargetTemperature(SetTargetTemperatureRequest) returns (SetTargetTemperatureResponse);
+	
+	//Server streaming RPC to stream historic readings
 	rpc StreamTemperatureHistory(GetTemperatureHistoryRequest) returns (stream TemperatureReading);
+	
+	//Client streaming RPC to recive temperature readings
 	rpc GetAverageTemperature(stream TemperatureReading) returns (GetAverageTemperatureResponse);
 	
 }
 
+//Request message for setting target temperature
 message SetTargetTemperatureRequest {
-
-	double target_temp = 1; //The target temperature to be set in degrees celsius
-	
+	double target_temp = 1; //The target temperature	
 }
 
+//Response message indicating success or failure of setting the temperature
 message SetTargetTemperatureResponse {
-
-	bool success = 1; //Boolean to store if temp set correctly
-	
+	bool success = 1; //Store if temp set correctly	
 }
 
+//Message representing a temperature reading
 message TemperatureReading {
-
 	double temperature = 1; //Stores the temp reading
-	int64 timestamp = 2; //Stores the time when the temp was measured
-
+	int64 timestamp = 2; //Timestamp
 }
 
-message GetTemperatureHistoryRequest {
-	
+//Request message for streaming historical temperature readings
+message GetTemperatureHistoryRequest {	
 	int64 start_timestamp = 1; //Stores the start time
-	int64 end_timestamp = 2; //Stores the end time
-	
+	int64 end_timestamp = 2; //Stores the end time	
 }
 
+//Response message with average temperature and reading count
 message GetAverageTemperatureResponse {
-
-	double average_temp = 1; //Stores the average temperature
-	int32 reading_count = 2; //Stores how many temperatures were used to calc the average
-
+	double average_temp = 1; //Average temperature
+	int32 reading_count = 2; //Count
 }
