@@ -9,6 +9,8 @@
 
 package client;
 
+import java.io.IOException;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -16,6 +18,10 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
+
 import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -32,7 +38,7 @@ public class SolarClient {
 	
 	private static Logger logger = Logger.getLogger(SolarClient.class.getName());
 	
-	//Host and port for connecting to the gRPC server
+	//Host and port for connecting to the gRPC server if jmDNS fails
     static String host = "localhost";
     static int port = 50052;
     
@@ -43,9 +49,32 @@ public class SolarClient {
     
     //Static initializer to set up channel and stubs
     static {
-        channel = ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
-                .build();
+    	ManagedChannel tmpChannel;
+    	try {
+    	    //Create jmDNS and lookup the service
+    	    JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
+    	    ServiceInfo info = jmdns.getServiceInfo(
+    	        "_solarpanel._grpc._tcp.local.",  
+    	        "SolarPanelService",
+    	        5000 //Timeout
+    	    );
+    	    if (info == null) throw new IOException("SolarPanelService not found");
+
+    	    //Pull host and port from the record
+            tmpChannel = ManagedChannelBuilder
+                    .forAddress(info.getHostAddresses()[0], info.getPort())
+                    .usePlaintext()
+                    .build();
+    	}catch(Exception e) {
+    		logger.warning("jmDNS lookup failed, defaulting to localhost:PORT — " + e.getMessage());
+    	    //Fallback to localhost
+    		tmpChannel = ManagedChannelBuilder
+    	        .forAddress(host, port)
+    	        .usePlaintext()
+    	        .build();
+    	}
+    	
+    	channel = tmpChannel;//Static initializer to set up channel and stubs
         blockingStub = SmartSolarServiceGrpc.newBlockingStub(channel);
         asyncStub    = SmartSolarServiceGrpc.newStub(channel);
     }

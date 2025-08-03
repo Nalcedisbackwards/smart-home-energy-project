@@ -30,11 +30,15 @@ import lighting.protos.UploadLightUsageResponse;
 import lighting.protos.AdjustBrightnessRequest;
 import lighting.protos.AdjustBrightnessResponse;
 import lighting.protos.SmartLightingServiceGrpc;
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
+import java.io.IOException;
+import java.net.InetAddress;
 
 public class LightingClient {
     private static final Logger logger = Logger.getLogger(LightingClient.class.getName());
 
-    //Host and port for connecting to the gRPC server
+    //Host and port for connecting to the gRPC server if jmDNS fails
     static String host = "localhost";
     static int port = 50053;
     
@@ -45,9 +49,32 @@ public class LightingClient {
     
     //Static initializer to set up channel and stubs
     static {
-        channel = ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
-                .build();
+    	ManagedChannel tmpChannel;
+    	try {
+    	    //Create jmDNS and lookup the service
+    	    JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
+    	    ServiceInfo info = jmdns.getServiceInfo(
+    	        "_smartlighting._grpc._tcp.local.",  
+    	        "SmartLightingService",
+    	        5000 //Timeout
+    	    );
+    	    if (info == null) throw new IOException("SmartLightingService not found");
+
+    	    //Pull host and port from the record
+            tmpChannel = ManagedChannelBuilder
+                    .forAddress(info.getHostAddresses()[0], info.getPort())
+                    .usePlaintext()
+                    .build();
+    	}catch(Exception e) {
+    		logger.warning("jmDNS lookup failed, defaulting to localhost:PORT — " + e.getMessage());
+    	    //Fallback to localhost
+    		tmpChannel = ManagedChannelBuilder
+    	        .forAddress(host, port)
+    	        .usePlaintext()
+    	        .build();
+    	}
+    	
+    	channel = tmpChannel;
         blockingStub = SmartLightingServiceGrpc.newBlockingStub(channel);
         asyncStub    = SmartLightingServiceGrpc.newStub(channel);
     }

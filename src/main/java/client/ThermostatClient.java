@@ -9,6 +9,8 @@
 
 package client;
 
+import java.io.IOException;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -16,6 +18,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
@@ -32,7 +38,7 @@ public class ThermostatClient {
 	
 	private static Logger logger = Logger.getLogger(ThermostatClient.class.getName());
 	
-	//Host and port for connecting to the gRPC server
+	//Host and port for connecting to the gRPC server if jmDNS fails
     static String host = "localhost";
     static int port = 50051;
     
@@ -41,11 +47,34 @@ public class ThermostatClient {
     private static final SmartThermostatGrpc.SmartThermostatBlockingStub blockingStub;
     private static final SmartThermostatGrpc.SmartThermostatStub asyncStub;
     
-    // Static initializer to set up channel and stubs
+  //Static initializer to set up channel and stubs
     static {
-        channel = ManagedChannelBuilder.forAddress(host, port)
-                .usePlaintext()
-                .build();
+    	ManagedChannel tmpChannel;
+    	try {
+    	    //Create jmDNS and lookup the service
+    	    JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
+    	    ServiceInfo info = jmdns.getServiceInfo(
+    	        "_thermostat._grpc._tcp.local.",  
+    	        "ThermostatService",
+    	        5000 //Timeout
+    	    );
+    	    if (info == null) throw new IOException("SmartThermostatService not found");
+
+    	    //Pull host and port from the record
+            tmpChannel = ManagedChannelBuilder
+                    .forAddress(info.getHostAddresses()[0], info.getPort())
+                    .usePlaintext()
+                    .build();
+    	}catch(Exception e) {
+    		logger.warning("jmDNS lookup failed, defaulting to localhost:PORT — " + e.getMessage());
+    	    //Fallback to localhost
+    		tmpChannel = ManagedChannelBuilder
+    	        .forAddress(host, port)
+    	        .usePlaintext()
+    	        .build();
+    	}
+    	
+    	channel = tmpChannel;
         blockingStub = SmartThermostatGrpc.newBlockingStub(channel);
         asyncStub    = SmartThermostatGrpc.newStub(channel);
     }
