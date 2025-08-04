@@ -212,9 +212,6 @@ public class EnergyDashboardGUI {
         usagePanel.add(new JLabel("Duration Min:"));
         JTextField txtUsageDur = new JTextField(5);
         usagePanel.add(txtUsageDur);
-        usagePanel.add(new JLabel("Avg Level:"));
-        JTextField txtUsageAvg = new JTextField(5);
-        usagePanel.add(txtUsageAvg);
         JButton btnUploadUsage = new JButton("Upload Usage");
         usagePanel.add(btnUploadUsage);
         lightingControls.add(usagePanel);
@@ -384,8 +381,7 @@ public class EnergyDashboardGUI {
             new Thread(() -> {
                 try {
                     int dur = Integer.parseInt(txtUsageDur.getText()); //Parse duration
-                    int avg = Integer.parseInt(txtUsageAvg.getText()); //Parse average
-                    List<LightUsageStat> stats = Arrays.asList(LightUsageStat.newBuilder().setDurationMin(dur).setAverageLevel(avg).build());
+                    List<LightUsageStat> stats = Arrays.asList(LightUsageStat.newBuilder().setDurationMin(dur).build());
                     double total = LightingClient.uploadUsageStats(stats);
                     SwingUtilities.invokeLater(() -> txtAreaLighting.append(String.format("Total energy used: %.2f kWh\n", total))); //Output to GUI
                 } catch(Exception ex) {

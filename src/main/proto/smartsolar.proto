@@ -40,7 +40,7 @@ message GetDailyYieldResponse {
 	double peak = 2; //Peak output
 }
 
-//Message representing a single power output reading
+//Message representing power output reading
 message RealTimeOutput {
 	double currentKw = 1; //Power output in kW
 	string timestamp = 2; //Timestamp

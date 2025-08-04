@@ -55,7 +55,6 @@ message AmbientLightReading {
 //Usage statistics for a period of time
 message LightUsageStat {
   int32 durationMin  = 1; //Duration of the period
-  int32 averageLevel = 2; //Average brightness level
 }
 
 //Response after uploading usage statistics

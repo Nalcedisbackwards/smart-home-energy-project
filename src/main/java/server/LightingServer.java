@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Instant;
 import java.util.Random;
+import java.util.concurrent.atomic.DoubleAdder;
 import java.util.logging.Logger;
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
@@ -102,14 +103,23 @@ public class LightingServer extends SmartLightingServiceImplBase {
     public StreamObserver<LightUsageStat> uploadLightUsageStats(StreamObserver<UploadLightUsageResponse> respObs) {
 		
 		//Total energy consumed from client-streamed stats
-        final double[] totalEnergy = new double[] { 0.0 };
+		final DoubleAdder totalEnergy = new DoubleAdder();
+        final double MAX_POWER_KW = 0.1;    //0.1 kW at 100% brightness
 
         return new StreamObserver<LightUsageStat>() {
             @Override
             public void onNext(LightUsageStat stat) {
-                //Energy (kWh) = durationMin * 0.1 kW * (averageLevel/100)
-                double kwh = stat.getDurationMin() * 0.1 * (stat.getAverageLevel() / 100.0);
-                totalEnergy[0] += kwh; //Add to total
+               
+            	//Scales level to 0-100
+            	double level = random.nextDouble() * 100.0;
+                for (int minute = 0; minute < stat.getDurationMin(); minute++) {
+                	double rnd = 1 + (random.nextGaussian() * 0.1);
+                	//10% variability around the baseline fraction
+                	double noisyLevel = level * rnd;
+                	//Energy per minute = P_max * fraction * (1/60) hour
+                	double energyThisMinute = MAX_POWER_KW * noisyLevel / 60.0;
+                	totalEnergy.add(energyThisMinute);
+                }
             }
 
             @Override
@@ -119,9 +129,10 @@ public class LightingServer extends SmartLightingServiceImplBase {
 
             @Override
             public void onCompleted() {
+            	double energyKw = totalEnergy.sum();
             	//Build and send response with total energy
                 UploadLightUsageResponse resp = UploadLightUsageResponse.newBuilder()
-                        .setTotalEnergyKw(totalEnergy[0])
+                        .setTotalEnergyKw(energyKw)
                         .build();
                 
                 respObs.onNext(resp); //Send response

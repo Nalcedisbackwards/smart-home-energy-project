@@ -65,6 +65,7 @@ public class LightingClient {
                     .forAddress(info.getHostAddresses()[0], info.getPort())
                     .usePlaintext()
                     .build();
+            
     	}catch(Exception e) {
     		logger.warning("jmDNS lookup failed, defaulting to localhost:PORT — " + e.getMessage());
     	    //Fallback to localhost
